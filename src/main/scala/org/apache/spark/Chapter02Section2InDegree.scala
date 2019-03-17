@@ -7,7 +7,7 @@ object Chapter02Section2InDegree {
     val sparkContext = new SparkContext(new SparkConf().setMaster("local")
       .setAppName("spark"));
     // 已经将cit-HepTh.txt放入到spark的bin目录
-    var graph = GraphLoader.edgeListFile(sparkContext, "cit-HepTh.txt");
+    val graph = GraphLoader.edgeListFile(sparkContext, "cit-HepTh.txt");
     // graph.inDegrees返回为Tuple<vertexId, inDegree>,在匿名函数中_2指代的Tuple中的second value
     graph.inDegrees.reduce((a, b) => if (a._2 > b._2) a else b);
     // 计算得到的是出度最多的<vertexId, degrees>
