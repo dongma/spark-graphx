@@ -3,7 +3,7 @@ package org.apache.spark.graphxbasic
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.{SparkConf, SparkContext}
 
-object Chapter04_5Serialize {
+object Chapter04_4Serializable {
 
   def main(args: Array[String]): Unit = {
     val sparkContext = new SparkContext(new SparkConf().setMaster("local")
@@ -22,6 +22,13 @@ object Chapter04_5Serialize {
       */
     myGraph.vertices.saveAsObjectFile("myGraphVertices")
     myGraph.edges.saveAsObjectFile("myGraphEdges")
+
+    /**
+      * option2:
+      * 将Graph对象进行序列化为HDFS或者S3时,为了避免生成多个文件可以使用 coalesce(1, true)方法进行序列化
+      */
+//    myGraph.vertices.coalesce(1, true).saveAsObjectFile("myGraphVertices")
+//    myGraph.edges.coalesce(1, true).saveAsObjectFile("myGraphEdges")
 
     /**
       * read graph object from binary hadoop sequence file
