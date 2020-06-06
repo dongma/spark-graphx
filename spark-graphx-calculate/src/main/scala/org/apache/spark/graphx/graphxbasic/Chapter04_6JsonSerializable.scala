@@ -1,4 +1,4 @@
-package org.apache.spark.graphxbasic
+package org.apache.spark.graphx.graphxbasic
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.module.scala.DefaultScalaModule

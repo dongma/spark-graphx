@@ -1,4 +1,4 @@
-package org.apache.spark.graphxbasic
+package org.apache.spark.graphx.graphxbasic
 
 import org.apache.spark.graphx.{Edge, EdgeContext, Graph}
 import org.apache.spark.{SparkConf, SparkContext}

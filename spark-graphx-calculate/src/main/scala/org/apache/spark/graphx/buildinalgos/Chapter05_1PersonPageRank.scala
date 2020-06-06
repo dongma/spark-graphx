@@ -1,4 +1,4 @@
-package org.apache.spark.buildinalgos
+package org.apache.spark.graphx.buildinalgos
 
 import org.apache.spark.graphx.GraphLoader
 import org.apache.spark.{SparkConf, SparkContext}

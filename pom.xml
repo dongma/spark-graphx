@@ -3,8 +3,12 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.apache.spark</groupId>
     <artifactId>spark-graphx</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <inceptionYear>2019</inceptionYear>
+    <packaging>pom</packaging>
+    <version>1.0.0</version>
+    <modules>
+        <module>spark-fundamental</module>
+        <module>spark-graphx-calculate</module>
+    </modules>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -61,25 +65,10 @@
             <version>16.0.1</version>
         </dependency>
 
-        <!-- for Test Scala -->
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.11</version>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>org.specs2</groupId>
             <artifactId>specs2-core_${scala.tools.version}</artifactId>
             <version>4.5.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_${scala.tools.version}</artifactId>
-            <version>3.0.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -92,7 +81,6 @@
 
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
-        <testSourceDirectory>src/test/scala</testSourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.scala-tools</groupId>

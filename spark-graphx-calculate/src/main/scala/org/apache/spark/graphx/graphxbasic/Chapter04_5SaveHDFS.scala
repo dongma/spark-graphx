@@ -1,4 +1,4 @@
-package org.apache.spark.graphxbasic
+package org.apache.spark.graphx.graphxbasic
 
 import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
 

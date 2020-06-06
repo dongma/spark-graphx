@@ -1,4 +1,5 @@
-import org.apache.spark.graphx._
+package org.apache.spark.graphx
+
 import org.apache.spark.{SparkConf, SparkContext}
 
 object Chapter02Section2InDegree {
