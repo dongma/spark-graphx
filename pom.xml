@@ -8,6 +8,7 @@
     <modules>
         <module>spark-fundamental</module>
         <module>spark-graphx-calculate</module>
+        <module>spark-sql</module>
     </modules>
 
     <properties>
