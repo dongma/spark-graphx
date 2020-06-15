@@ -89,6 +89,53 @@ object VariousTypeInSpark {
     retailDataRdd.select(selectedColumns: _*).where(col("is_white").or(col("is_red")))
       .select("Description").show(3, false)
 
+    // 在spark中处理日期date和时间戳timestamp类型的数据，并从dateframe中通过函数进行简单计算
+    val dateRdd = spark.range(10).withColumn("today", current_date())
+      .withColumn("now", current_timestamp())
+    dateRdd.createOrReplaceTempView("dateTable")
+    dateRdd.printSchema()
+    dateRdd.select(date_sub(col("today"), 5), date_add(col("today"), 5)).show(1)
+    // 使用datediff()函数计算两个日期间相差的天数，也可是使用alias对日期变量进行重命名，之后在比较函数中通过col进行引用
+    dateRdd.withColumn("week_ago", date_sub(col("today"), 7))
+      .select(datediff(col("week_ago"), col("today"))).show(1)
+    dateRdd.select(
+      to_date(lit("2016-01-01")).alias("start"),
+      to_date(lit("2017-05-22")).alias("end")
+    ).select(months_between(col("start"), col("end"))).show(1)
+    // 使用dateFormat对日期进行格式化，将表常量字符串按照format格式转换为date类型，to_timestamp()函数要求指定format格式
+    val dateFormat = "yyyy-dd-MM"
+    val cleanDateDf = spark.range(1).select(
+      to_date(lit("2017-12-11"), dateFormat).alias("date"),
+      to_date(lit("2017-20-12"), dateFormat).alias("date2"))
+    cleanDateDf.createOrReplaceTempView("dateTable2")
+    cleanDateDf.select(to_timestamp(col("date"), dateFormat)).show()
+    // 若要进行数据筛选可使用col("date2") > lit("2017-12-12")时间常量进行比较
+    cleanDateDf.filter(col("date2") > lit("2017-12-12")).show()
+
+    // spark中对于null值的处理，coalesce()函数用于从dateframe中找到第一个不为null的数据记录
+    retailDataRdd.select(coalesce(col("Description"), col("CustomerId"))).show()
+    // ifnull(null, 'return_value'), nullif('value1', 'value2'), nvl(null, 'return_value'), nvl2('not_null', 'return_value', 'else_value')
+    retailDataRdd.na.drop("all", Seq("StockCode", "InvoiceNo"))
+    // 使用fill()函数 可以通过指定一个map对数据列中给定字段设置默认值，对于null字段使用"StockCode"设置默认值5 对"Description"设置默认值"No Value"
+    val fillColValues = Map("StockCode" -> 5, "Description" -> "No Value")
+    retailDataRdd.na.fill(fillColValues)
+    // replace()方法对于Description字段，当数据值为""时使用"UNKNOWN"字符串进行替换，对于ordering可以是asc_nulls_first, desc_nulls_first, asc_nulls_last or desc_nulls_last
+    retailDataRdd.na.replace("Description", Map("" -> "UNKNOWN"))
+
+    // 在dataframe中使用struct结构体类型，获取complex中的字段可以通过select("complex.Description")或(col("complex").getField("Description"))
+    val complexDf = retailDataRdd.select(struct("Description", "InvoiceNo").alias("complex"))
+    complexDf.createOrReplaceTempView("complexDf")
+    complexDf.select("complex.Description").show(2)
+    // 可以使用split() function指定分隔符来切分field字段, 使用alias()重新命名为新字段，然后通过下标索引获取值array_col[0]
+    retailDataRdd.select(split(col("Description"), " ").alias("array_col"))
+      .selectExpr("array_col[0]").show(2)
+    // 可以通过size()方法获取得到切分array数组的长度，对于判断array中是否包含某一常量字符串 可使用array_contains()方法
+    retailDataRdd.select(size(split(col("Description"), " "))).show(2)
+    retailDataRdd.select(array_contains(split(col("Description"), " "), "WHITE")).show(2)
+    // explode()函数用于将为数组形式的field使用分割的item重新拼接数据行
+    retailDataRdd.withColumn("splitted", split(col("Description"), " "))
+      .withColumn("exploded", explode(col("splitted")))
+      .select("Description", "InvoiceNo", "exploded").show(2)
   }
 
 }
