@@ -2,6 +2,7 @@ package org.apache.spark
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 /**
  * @author Sam Ma
@@ -136,6 +137,38 @@ object VariousTypeInSpark {
     retailDataRdd.withColumn("splitted", split(col("Description"), " "))
       .withColumn("exploded", explode(col("splitted")))
       .select("Description", "InvoiceNo", "exploded").show(2)
+
+    // 在dataframe中设置Map类型，使用col(filedName)对两个字段进行映射，第一个col(fieldName)作为key名称
+    retailDataRdd.select(map(col("Description"), col("InvoiceNo")).alias("complex_map"))
+      .selectExpr("complex_map['WHITE METAL LANTERN']").show(2)
+    // 可使用explode()函数对complex_map进行拆分，每一个key单独在一行中进行展示
+    retailDataRdd.select(map(col("Description"), col("InvoiceNo")).alias("complex_map"))
+      .selectExpr("explode(complex_map)").show(2)
+
+    // 可通过selectExpr()将json String作为jsonRdd数据，通过get_json_object()inline查询JSON对象，当json对象只嵌入一层时，使用json_tuple()方法
+    val jsonDataFrame = spark.range(1).selectExpr("""
+        '{"myJSONKey": {"myJSONValue": [1, 2, 3]}}' as jsonString""")
+    jsonDataFrame.select(
+      get_json_object(col("jsonString"), "$.myJSONKey.myJSONValue[1]") as "column",
+      json_tuple(col("jsonString"), "myJSONKey")).show(2)
+    // 可以将一个struct数据通过to_json()方法转换成为Json结构，使用from_json()可以将json转化为struct结构
+    retailDataRdd.selectExpr("(InvoiceNo, Description) as myStruct").select(to_json(col("myStruct"))).show(2)
+    val parseSchema = new StructType(Array(
+      new StructField("InvoiceNo", StringType, true),
+      new StructField("Description", StringType, true)
+    ))
+    retailDataRdd.selectExpr("(InvoiceNo, Description) as myStruct")
+      .select(to_json(col("myStruct")).alias("newJSON"))
+      .select(from_json(col("newJSON"), parseSchema), col("newJSON")).show(2)
+
+    val udfExampleDataFrame = spark.range(5).toDF("num")
+    def power3(number: Double): Double = number * number * number
+    power3(2.0)
+    val power3udf = udf(power3(_: Double): Double)
+    udfExampleDataFrame.select(power3udf(col("num"))).show()
+    // 将power3 udf注册到spark的context中，在ud的dataframe中可以调用power3(num)进行查询
+    spark.udf.register("power3", power3(_: Double): Double)
+    udfExampleDataFrame.selectExpr("power3(num)").show(2)
   }
 
 }
