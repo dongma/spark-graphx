@@ -1,6 +1,5 @@
 package org.apache.spark
 
-import com.sun.tools.corba.se.idl.constExpr.BooleanAnd
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -110,12 +109,76 @@ object AggregationsAndJoins {
     piovted.where("date > '2011-12-05'").select("date", "`USA_sum(Quantity)`").show()
 
     // apache spark对user defined function进行注册，目前在spark 2.4.5版本上执行register udf函数是存在问题的
-    val boolAnd = new BooleanAnd()
-    /*spark.udf.register("booland", boolAnd)
+    /*val boolAnd = new BooleanAnd()
+    spark.udf.register("booland", boolAnd)
     spark.range(1).selectExpr("explode(array(TRUE, TRUE, TRUE)) as t")
       .selectExpr("explode(array(TRUE, FALSE, TRUE)) as f", "t")
       .select(boolAnd(col("t")), expr("booland(f)"))
       .show()*/
+
+
+    import spark.sqlContext.implicits._
+    // 通过Seq(...).toDF(columnName1, columnName2, columnName3)创建DataFrame，需导入spark.sqlContext.implicits内容
+    val personDataFrame = Seq(
+      (0, "Bill Chambers", 0, Seq(100)),
+      (1, "Matei Zaharia", 1, Seq(500, 250, 100)),
+      (2, "Michael Armbrust", 1, Seq(250, 100))
+    ).toDF("id", "name", "graduate_program", "spark_status")
+    personDataFrame.createOrReplaceTempView("person")
+    val graduateProgramDf = Seq(
+      (0, "Masters", "School of Information", "UC Berkeley"),
+      (2, "Masters", "EECS", "UC Berkeley"),
+      (1, "PH.D", "EECS", "UC Berkeley")
+    ).toDF("id", "degree", "department", "school")
+    graduateProgramDf.createOrReplaceTempView("graduateProgram")
+    val sparkStatusDf = Seq(
+      (500, "Vice President"),
+      (250, "PMC Member"),
+      (100, "Contributor")).toDF("id", "status")
+    sparkStatusDf.createOrReplaceTempView("sparkStatus")
+
+    // innerjoin类型 可以指定joinType类型，同时指定joinType类型为inner join
+    val joinExpression = personDataFrame.col("graduate_program") === graduateProgramDf.col("id")
+    var joinType = "inner"
+    personDataFrame.join(graduateProgramDf, joinExpression, joinType).show()
+
+    // outer joins evaluate the keys in both of the dataframes or tables, if there is no equivalent row exists, spark will insert null
+    joinType = "outer"
+    personDataFrame.join(graduateProgramDf, joinExpression, joinType).show()
+
+    // 左外连接left_outer类型，左外连接以左表为主 若不存在对应的key，则spark会直接插入null(right_outer则正好相反)
+    joinType = "left_outer"
+    graduateProgramDf.join(personDataFrame, joinExpression, joinType).show()
+    joinType = "right_outer"
+    personDataFrame.join(graduateProgramDf, joinExpression, joinType).show()
+
+    // left_semi join类型为当左表中的数据在right table中存在时，则将其保存在result中
+    joinType = "left_semi"
+    graduateProgramDf.join(personDataFrame, joinExpression, joinType).show()
+    // 对两张数据表使用cross join进行连接，cross join will join every single row in the left DataFrame to ever single row in the right DataFrame
+    joinType = "cross"
+    graduateProgramDf.join(personDataFrame, joinExpression, joinType).show()
+
+    // joins on complex types，使用inner join在筛选条件部分 使用array_contains(spark_status, id)谓词进行数据筛选
+    personDataFrame.withColumnRenamed("id", "personId")
+      .join(sparkStatusDf, expr("array_contains(spark_status, id)")).show()
+    // 为避免在spark sql中不同dataframe中存在相同column问题，可以使用不同的join type、或者join之后drop同名的列、join前renaming一列
+    val gradProgramDupe = graduateProgramDf.withColumnRenamed("id", "graduate_program")
+    var joinExpr = gradProgramDupe.col("graduate_program") === personDataFrame.col("graduate_program")
+//    personDataFrame.join(gradProgramDupe, joinExpr).select("graduate_program").show()
+    personDataFrame.join(gradProgramDupe, "graduate_program").select("graduate_program").show()
+    // 同名的columnName在join之后可以删除任意一个column，这样在后期select时不会由于column重复产生语法解析错误
+    personDataFrame.join(gradProgramDupe, joinExpr).drop(personDataFrame.col("graduate_program"))
+      .select("graduate_program").show()
+
+    joinExpr = personDataFrame.col("graduate_program") === graduateProgramDf.col("id")
+    personDataFrame.join(graduateProgramDf, joinExpr).explain()
+/*    == Physical Plan ==
+      *(1) BroadcastHashJoin [graduate_program#8096], [id#8111], Inner, BuildLeft
+    :- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[2, int, false] as bigint)))
+      :  +- LocalTableScan [id#8094, name#8095, graduate_program#8096, spark_status#8097]
+    +- LocalTableScan [id#8111, degree#8112, department#8113, school#8114]*/
+
   }
 
 }
