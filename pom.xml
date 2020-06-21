@@ -9,6 +9,7 @@
         <module>spark-fundamental</module>
         <module>spark-graphx-calculate</module>
         <module>spark-sql</module>
+        <module>spark-datasets</module>
     </modules>
 
     <properties>
