@@ -10,6 +10,7 @@
         <module>spark-graphx-calculate</module>
         <module>spark-sql</module>
         <module>spark-datasets</module>
+        <module>deploy-spark-apps</module>
     </modules>
 
     <properties>
