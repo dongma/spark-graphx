@@ -11,6 +11,7 @@
         <module>spark-sql</module>
         <module>spark-datasets</module>
         <module>deploy-spark-apps</module>
+        <module>spark-streaming</module>
     </modules>
 
     <properties>
