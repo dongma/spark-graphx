@@ -1,6 +1,7 @@
 package org.apache.spark
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.streaming.Trigger
 import org.slf4j.{Logger, LoggerFactory}
 
 /**
@@ -105,6 +106,15 @@ object StreamingApp {
       .start()
     kafkaSink.awaitTermination()
 
+    /*
+     * when data is output(Triggers), time trigger将会等待多个指定的duration来输出数据(未验证)
+     */
+    activityCounts.writeStream.trigger(Trigger.ProcessingTime("100 seconds"))
+      .format("console").outputMode("complete").start()
+
+    // 可以通过Trigger.Once()频率trigger触发执行给定streaming job一次
+    activityCounts.writeStream.trigger(Trigger.Once())
+      .format("console").outputMode("complete").start()
   }
 
 }
