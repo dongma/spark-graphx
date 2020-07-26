@@ -7,7 +7,7 @@
     <version>1.0.0</version>
     <modules>
         <module>spark-fundamental</module>
-        <module>spark-graphx-calculate</module>
+        <module>graphx-calculate</module>
         <module>spark-sql</module>
         <module>spark-datasets</module>
         <module>deploy-spark-apps</module>
