@@ -1,5 +1,6 @@
-package org.apache.spark.graphx
+package org.apache.spark.graphx.action
 
+import org.apache.spark.graphx.GraphLoader
 import org.apache.spark.{SparkConf, SparkContext}
 
 object Chapter02Section3PageRank {

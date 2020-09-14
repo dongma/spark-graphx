@@ -1,3 +1,5 @@
+package org.apache.spark.graphx.action
+
 import org.apache.spark.{SparkConf, SparkContext}
 
 object Chapter03HelloWorld {
