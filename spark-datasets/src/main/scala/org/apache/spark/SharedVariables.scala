@@ -60,8 +60,3 @@ object SharedVariables {
   }
 
 }
-
-/*
- * Flight映射scala中原始数据内容，将csv或json文件内容转化为实体对象
- */
-case class Flight(DEST_COUNTRY_NAME: String, ORIGIN_COUNTRY_NAME: String, count: BigInt)

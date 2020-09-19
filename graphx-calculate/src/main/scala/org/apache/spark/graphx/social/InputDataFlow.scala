@@ -20,8 +20,9 @@ object InputDataFlow {
     val fields = line.split('\t')
     if (fields.length > 1) {
       Some(fields(0).trim.toLong, fields(1))
+    } else {
+      None
     }
-    None
   }
 
   /**

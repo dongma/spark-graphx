@@ -27,11 +27,11 @@ class SocialGraph(sc: SparkContext) {
 
   /**
    * 使用vertexs和edges构建graph图对象，并将构建的图cache()
-   * @return
+   * @return                                          
    */
   def graph: Graph[String, PartitionID] = {
     val graph: Graph[String, PartitionID] = Graph(vertexs, edges).cache()
-    logger.info(s"vertex size: ${graph.vertices.collect().size}, edge size: ${graph.edges.collect().size}")
+    logger.info(s"vertex size: ${graph.vertices.count()}, edge size: ${graph.edges.count()}")
     graph
   }
 

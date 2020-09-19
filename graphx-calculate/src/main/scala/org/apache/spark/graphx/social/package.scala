@@ -7,8 +7,8 @@ package org.apache.spark.graphx
  */
 package object social {
 
-  val USER_NAMES_TSV = "graphx-calculate/src/main/resources/UserGraph.tsv";
+  val USER_NAMES_TSV = "/Users/madong/datahub-repository/spark-graphx/graphx-calculate/src/main/resources/UserNames.tsv";
 
-  val USER_GRAPH_TSV = "graphx-calculate/src/main/resources/UserGraph.tsv";
+  val USER_GRAPH_TSV = "/Users/madong/datahub-repository/spark-graphx/graphx-calculate/src/main/resources/UserGraph.tsv";
 
 }
