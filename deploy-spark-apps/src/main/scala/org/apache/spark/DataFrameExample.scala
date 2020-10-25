@@ -12,7 +12,7 @@ object DataFrameExample extends Serializable {
   /*
    * spark-submit脚本: $SPARK_HOME/bin/spark-submit --class org.apache.spark.DataFrameExample \
    *       --master=local \
-   *       target/deploy-spark-apps-1.0.0.jar "/Users/madong/datahub-repository/spark-graphx/example-data"
+   *       target/deploy-spark-apps-1.0.0.jar "file:/Users/madong/datahub-repository/spark-graphx/example-data"
    * success:
    * 20/07/14 00:32:30 INFO DAGScheduler: Job 1 finished: main at NativeMethodAccessorImpl.java:0, took 1.926153 s
      [spark deploy]
