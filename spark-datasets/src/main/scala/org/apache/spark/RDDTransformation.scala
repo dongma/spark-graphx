@@ -138,6 +138,120 @@ object RDDTransformation {
     val foldByKeyRdd = stringRdd.foldByKey("x", 2)((x, y) => x + "_" + y)
     // ormation$: use foldByKey() to aggregate all elements to Rdd, foldByKeyRdd: List((4,x_d), (2,x_b_x_e_x_g), (1,x_a_x_h), (3,x_c_x_f))
     logger.info(s"use foldByKey() to aggregate all elements to Rdd, foldByKeyRdd: ${rddToString(foldByKeyRdd)}")
+
+    /*
+     * cogroup()和groupWith()操作：将多个rdd中具有相同key的value聚合在一起
+     */
+    val anotherRdd = spark.sparkContext.parallelize(Array[(Int, Char)]((1, 'f'), (3, 'g'), (2, 'h')), 3)
+    val cogroupRdd = inputRdd.cogroup(anotherRdd, 3)
+    // will gather: List((3,(CompactBuffer(c, e, f),CompactBuffer(g))), (4,(CompactBuffer(d),CompactBuffer())), (1,(CompactBuffer(a),CompactBuffer(f))), (2,(CompactBuffer(b, k, g, h),CompactBuffer(h))))
+    logger.info(s"cogroup with two rdd, all elements of same key will gather: ${rddToString(cogroupRdd)}")
+
+    /*
+     * join()操作: 最终生成结果为相同key的元素放在一起<key, list<k, w>>
+     */
+    val joinRdd = inputRdd.join(anotherRdd, 3)
+    // with anotherRdd, final result: List((3,(c,g)), (3,(e,g)), (3,(f,g)), (1,(a,f)), (2,(b,h)), (2,(k,h)), (2,(g,h)), (2,(h,h)))
+    logger.info(s"inputRdd join with anotherRdd, final result: ${rddToString(joinRdd)}")
+
+    /*
+     * cartesian()操作: 求两个rdd的笛卡尔积, 若rdd1有m个分区 rdd2有n个分区, 则输出rdd1中m个分区与rdd2中n个分区两两合并后的结果
+     */
+    val rdd1 = spark.sparkContext.parallelize(Array[(Int, Char)]((1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')), 2)
+    val rdd2 = spark.sparkContext.parallelize(Array[(Int, Char)]((1, 'A'), (2, 'B')), 2)
+    val cartesianRdd = rdd1.cartesian(rdd2)
+    // 总共4个分区有数据, cartesian with rdd1 and rdd2, final result: List(((1,a),(1,A)), ((2,b),(1,A)), ((1,a),(2,B)), ((2,b),(2,B)),
+    // ((3,c),(1,A)), ((4,d),(1,A)), ((3,c),(2,B)), ((4,d),(2,B)))
+    logger.info(s"cartesian with rdd1 and rdd2, final result: ${rddToString(cartesianRdd)}")
+
+    /*
+     * sortByKey()操作: 对rdd1中<K, V> record进行排序, 在相同key情况下 并不对value进行排序(ascending = true时, 表示按照key的升序排序)
+     */
+    val wordRdd = spark.sparkContext.parallelize(Array[(Char, Int)](('D', 2), ('B', 4), ('C', 3), ('A', 5), ('B', 2),
+      ('C', 1), ('C', 3)))
+    // 与reduceByKey()等操作根据Hash划分数据不同, sortByKey()为了保证生成rdd数据全局有序, 采用range划分数据
+    val sortRdd = wordRdd.sortByKey(true, 2)
+    // sorted all element in wordRdd, final result: List((A,5), (B,4), (B,2), (C,3), (C,1), (C,3), (D,2))
+    logger.info(s"sorted all element in wordRdd, final result: ${rddToString(sortRdd)}")
+
+    /*
+     * coalesce()操作: 将rdd1的分区个数降低或升高为numPartitions, 对分区中数据重新partition (第二个参数是否shuffle，可减少数据倾斜问题)
+     *    repartition(numPartitions)为重新分区, 其功能与coalesce(numPartitions, true)一样
+     */
+    val coalesceRdd = inputRdd.coalesce( 5, true)
+    // uppercase coalesceRdd to 5 with shuffle, final result: List((3,e), (1,a), (2,b), (3,f), (2,k), (3,c),
+    // (2,g), (4,d), (2,h))
+    logger.info(s"adjust coalesceRdd partition number to 5 with shuffle, final result: ${rddToString(coalesceRdd)}")
+
+    /*
+     * repartitionAndSortWithinPartitions()操作: 将rdd1中的数据重新进行分区，分发到rdd2中. 其可以灵活的使用各种partitioner;
+     *  而且对于rdd2中每个分区中的数据，按照key进行排序
+     */
+    val repartitionRdd = wordRdd.repartitionAndSortWithinPartitions(new HashPartitioner(3))
+    // use HashPartitioner to resort all data in any partitions, reuslt: List((B,4), (B,2), (C,3), (C,1), (C,3), (A,5), (D,2))
+    logger.info(s"use HashPartitioner to resort all data in any partitions, result: ${rddToString(repartitionRdd)}")
+
+    /*
+     * intersection()：将集和rdd1和rdd2中共同的元素抽取出来，从而形成新的集合rdd3
+     */
+    val numRdd1 = spark.sparkContext.parallelize(List(2, 2, 3, 4, 5, 6, 8, 6), 3)
+    val numRdd2 = spark.sparkContext.parallelize(List(2, 3, 6, 6), 2)
+    // use intersection operate to conjunct with numRdd1 and numRdd2, result: List(6, 3, 2)
+    val intersectionRdd = numRdd1.intersection(numRdd2)
+    logger.info(s"use intersection operate to conjunct with numRdd1 and numRdd2, result: ${rddToString(intersectionRdd)}")
+
+    /*
+     * distinct()、union()和zip()操作: distinct()用于对分区中数据去重、union()会将两个分区中数据拼接
+     *  zip()将rdd1和rdd2中元素按照一一对应关系连接，构成<K, V>, 要求rdd1和rdd2中分区个数相同 且分区中元素数量相同
+     *  zipPartitions(): 将rdd1和rdd2中的分区按照一一对应关系连接，要求rdd1和rdd2分区个数相同，不要求每个分区元素相同
+     */
+    val numRdd = spark.sparkContext.parallelize(1 to 8, 3)
+    val charRdd = spark.sparkContext.parallelize('a' to 'h', 3)
+    // mation$: zip with numRdd and charRdd, result: List((1,a), (2,b), (3,c), (4,d), (5,e), (6,f), (7,g), (8,h))
+    val zipRdd = numRdd.zip(charRdd)
+    logger.info(s"zip with numRdd and charRdd, result: ${rddToString(zipRdd)}")
+    val sameRdd = spark.sparkContext.parallelize(Array[(Int, Char)]((3, 'g'), (2, 'h'), (4, 'i')), 3)
+    val zipPartitionRdd = inputRdd.zipPartitions(sameRdd)({
+      (rdd1Iter, rdd2Iter) => {
+        var result = List[String]()
+        while (rdd1Iter.hasNext && rdd2Iter.hasNext) {
+          // 将rdd1和rdd2中的数据按照下划线连接，然后添加到result: list的首位
+          result ::= rdd1Iter.next() + "_" + rdd2Iter.next()
+        }
+        result.iterator
+      }
+    })
+    // zipPartitions with sameRdd and inputRdd, final: List((1,a)_(1,f), (3,c)_(3,g), (2,g)_(4,i), (3,f)_(2,h))
+    logger.info(s"zipPartitions with sameRdd and inputRdd, final: ${rddToString(zipPartitionRdd)}")
+
+    /*
+     * zipWithIndex()和zipWithUniqueId()操作: zipWithIndex(): 对rdd1中的数据进行编号，编号方式是从0开始按序递增的;
+     *   和zipWithUniqueId(): 对rdd1中的数据编号，编号方式为round-robin
+     */
+    val zipWithIndexRdd = inputRdd.zipWithIndex()
+    val zipWithUniqueRdd = inputRdd.zipWithUniqueId()
+    /* zipWithIndexRdd value: List(((1,a),0), ((2,b),1), ((2,k),2), ((3,c),3), ((4,d),4), ((3,e),5), ((3,f),6), ((2,g),7),
+       ((2,h),8)), zipWithUniqueRdd value: List(((1,a),0), ((2,b),3), ((2,k),6), ((3,c),1), ((4,d),4),
+       ((3,e),7), ((3,f),2), ((2,g),5), ((2,h),8)) */
+    logger.info(s"zipWithIndexRdd value: ${rddToString(zipWithIndexRdd)}, zipWithUniqueRdd value: " +
+      s"${rddToString(zipWithUniqueRdd)}")
+
+    /*
+     * subtractByKey()和subtract()操作: subtractByKey()会计算出key在rdd1中而不再rdd2中的record,
+     *  subtract()则会计算在rdd1中而不在rdd2中的record
+     */
+    val subtractByKeyRdd = inputRdd.subtractByKey(sameRdd)
+    // subtractByKey sameRdd from inputRdd, final rdd result: List((1,a))
+    logger.info(s"subtractByKey sameRdd from inputRdd, final rdd result: ${rddToString(subtractByKeyRdd)}")
+    val subtractRdd = inputRdd.subtract(sameRdd)
+    logger.info(s"calculate record in inputRdd but not in sameRdd, result: ${rddToString(subtractRdd)}")
+
+    /*
+     * sortBy(func): 其基于func的计算结果对rdd1中的record进行排序
+     */
+    val sortByRdd = stringRdd.sortBy(record => record._2, true, 2)
+    // sort all records in stringRdd with anonymous function, sortByRdd: List((1,a), (2,b), (3,c), (4,d), (2,e), (3,f), (2,g), (1,h))
+    logger.info(s"sort all records in stringRdd with anonymous function, sortByRdd: ${rddToString(sortByRdd)}")
   }
 
   /** 用于将rdd转换为Seq数组并将其中的元素在console中进行展示 */
