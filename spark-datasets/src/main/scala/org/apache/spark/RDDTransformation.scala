@@ -252,6 +252,13 @@ object RDDTransformation {
     val sortByRdd = stringRdd.sortBy(record => record._2, true, 2)
     // sort all records in stringRdd with anonymous function, sortByRdd: List((1,a), (2,b), (3,c), (4,d), (2,e), (3,f), (2,g), (1,h))
     logger.info(s"sort all records in stringRdd with anonymous function, sortByRdd: ${rddToString(sortByRdd)}")
+
+    /*
+     * glom()操作，其会将rdd1中每个分区的record合并到一个list中
+     */
+    val glomRdd = stringRdd.glom()
+    // gather all record of partition to list, List([Lscala.Tuple2;@f95d64d, [Lscala.Tuple2;@288728e, [Lscala.Tuple2;@b7d2d51)
+    logger.info(s"gather all record of partition to list, ${rddToString(glomRdd)}")
   }
 
   /** 用于将rdd转换为Seq数组并将其中的元素在console中进行展示 */
