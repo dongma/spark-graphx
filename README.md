@@ -7,13 +7,56 @@
 
 ### (RDDs) - a distributed memory abstraction
 
-`RDDs`允许应用开发者在大型集群上执行`in-memory`计算，同时保留`MapReduce`等数据流模型的容错能力。`RDDs`的设计受当前数据流系统无法有效处理的两种应用程序的驱动：迭代式计算（`iterative algorithms`）—被广泛用于图计算以及机器学习，以及交互式的数据挖掘工具。为了有效地实现容错，`RDDs`提供了高度受限的共享内存形式：其为只读的数据集（`datasets`）、分区的数据集合（`partitioned collections of records`），并且只能通过其它`RDD`上确定性转换（`map`、`join`和`group by`等）来创建。 `RDD`可通过血统（`lineage`）重新构建丢失的分区数据，其有足够的信息表明如何从其它`RDD`进行转换。
+`RDDs`允许应用开发者在大型集群上执行`in-memory`计算，同时保留`MapReduce`等数据流模型的容错能力。`RDDs`的设计受当前数据流系统无法有效处理的两种应用程序的驱动影响：迭代式计算（`iterative algorithms`）—被广泛用于图计算以及机器学习，以及交互式的数据挖掘工具。为了有效地实现容错，`RDDs`提供了高度受限的共享内存形式：其为只读的数据集（`datasets`）、分区的数据集合（`partitioned collections of records`），并且只能通过其它`RDD`上确定性转换（`map`、`join`和`group by`等）来创建。 `RDD`可通过血统（`lineage`）重新构建丢失的分区数据，其有足够的信息表明如何从其它`RDD`进行转换。
 
-*`Programming Model`*  在`spark`中`rdd`由对象表示，并调用这些对象上的方法进行转换。在定义一个或者多个`RDD`之后，开发者可在操作（`action`）中使用它们，其会将数值返回给应用程序或将数据导出到存储系统。`RDD`仅在`action`中首次使用时才进行计算（they are lazily evaluated），在构建`RDD`时时允许运行时流水线化多个转换。`caching`及`partitioning`是开发者经常控制`RDD`的两个操作，计算后的`RDD`分区数据进行缓存数据之后使用时会加速计算速度。`RDD`通常缓存在内存中，当内存不足时会`spill`到磁盘上。此外，`RDD`通常也允许用户执行分区策略（`partition strategy`），目前支持`hash`和`range`两种方式进行分区。例如，应用程序可对两个`RDD`采用相同的`hash`分区（相同`key`的`record`放在同一台机器），用于加快`join`连接速度。
+*`Programming Model`*  在`spark`中`rdd`由对象表示，并调用这些对象上的方法进行转换。在定义一个或者多个`RDD`之后，开发者可在操作（`action`）中使用它们，其会将数值返回给应用程序或将数据导出到存储系统。`RDD`仅在`action`中首次使用时才进行计算（they are lazily evaluated），在构建`RDD`时允许在流水线上运行多个转换。`caching`及`partitioning`是开发者经常控制`RDD`的两个操作，计算后的`RDD`分区数据进行缓存之后再使用时会加快计算速度。`RDD`通常缓存在内存中，当内存不足时会`spill`到磁盘上。此外，`RDD`通常还允许用户执行分区策略（`partition strategy`），目前支持`hash`和`range`两种方式进行分区。例如，应用程序可对两个`RDD`采用相同的`hash`分区（相同`key`的`record`放在同一台机器），用于加快`join`连接速度。
 
 <img src="example-data/images/spark-narrow-dependency.png" style="zoom:115%;" />
 
-简而言之，每个`RDD`都有一组分区，这些分区都是数据集的原子部分。转换的依赖关系构成了其与父`RDD`的血缘关系：基于其父代计算`RDD`计算的功能及有关其分区方案和数据放置的原数据。`spark`使用`narrow dependencies`和`wide dependencies`来表示`RDD`间的数据依赖，`narrow dependencies`指子`RDD`仅依赖于父`RDD`的固定分区的数据（`each partition of the child RDD depends on a constant number of partitions of parent`），一般为一些`map()`、`filter()`、`union()`、`mapValues()`等转换操作；`wide dependencies`指生成`RDD`的数据依赖与父`RDD`的所有分区数据，常为一些聚合类的转换操作`groupByKey()`、`groupByKey()`、`reduceByKey(func, [numPartitions])`。
+简而言之，每个`RDD`都有一组分区，这些分区都是数据集的原子部分。转换依赖关系构成了其与父`RDD`的血缘关系：基于其父代计算`RDD`计算的功能及有关其分区方案和数据放置的原数据。`spark`使用`narrow dependencies`和`wide dependencies`来表示`RDD`间的数据依赖，`narrow dependencies`指子`RDD`仅依赖于父`RDD`的固定分区的数据（`each partition of the child RDD depends on a constant number of partitions of parent`），一般为一些`map()`、`filter()`、`union()`、`mapValues()`等转换操作；`wide dependencies`指生成`RDD`的数据依赖与父`RDD`的所有分区数据，常为一些聚合类的转换操作`groupByKey()`、`groupByKey()`、`reduceByKey(func, [numPartitions])`。
 
-`narrow dependencies `允许在集群单台`node`结点上流水线执行父`RDD`所有分区的数据，相比之下，`wide dependencies`则要求所有父`RDD`分区中数据都必须是可用的，以便使用`map-reduce`类似的操作执行跨`node`的`shuffle`操作。除此之外，在`node`计算失败后使用`narrow dependencies`会更加有效，因为其只需计算部分父`RDD`缺失数据的`parition`，并且重新计算的过程可在不同结点上并行进行。而`wide dependencies`则会要求重新计算整个父`RDD`中的所有数据，完整的重新进行计算。
+`narrow dependencies `允许在集群单台`node`结点流水线执行父`RDD`所有分区的数据，相比之下，`wide dependencies`则要求所有父`RDD`分区中数据都必须是可用的，以便使用`map-reduce`类似的操作执行跨`node`的`shuffle`操作。除此之外，在`node`计算失败后使用`narrow dependencies`会更加高效，因为其只需计算部分父`RDD`缺失数据的`parition`，并且重新计算的过程可在不同结点上并行进行。而`wide dependencies`则会要求重新计算整个父`RDD`中的所有数据，重新进行完整的计算。
 
+### DataFrames, Datasets, and Spark SQL
+
+`Sprak SQL`以及它的`DataFrames`及`DataSets`接口是`Spark`性能优化的未来，其自带更高效的`storage options`，`advanced optimizer`以及对序列化数据的直接操作。和`RDDs`一样，`DataFrames`和`Datasets`代表分布式集合，并附带有在`RDDs`上没有`schema`信息。这些信息被用来提供一个更有效的存储层`Tungsten`，并在优化器中执行其它优化。除了`schema`之外，在`DataFrames`及`DataSets`上执行时`Catalyst`可以检查其逻辑语意，而并不仅仅是执行`functions`内容。`DataFrames`是`DataSets`中一种特殊的`Row`对象，其并不提供任何编译期的类型检查（`type checking`）。强类型的`DataSet API`特别适合用于更多像`RDDs functions`一样的操作。
+
+可直接使用`RDD[T]`的`.toDF(column1, column2, ..)`创建`DataFrames`，在`RDD[T]`类型明确的情况下，使用`spark.s qlContext.createDataFrame(flightRDD)`进行创建。在之前性能评测中，执行`reduceByKey()`操作时，`DataFrames`执行相同数据性能评测是远远优于`RDD`性能：
+
+```scala
+val flight: Flight = Flight("United States", "Romania", 264)
+val toDfDataFrame = spark.sparkContext.parallelize(Seq(flight))
+      .toDF("DEST_COUNTRY_NAME", "ORIGIN_COUNTRY_NAME", "count")
+/*root
+ |-- DEST_COUNTRY_NAME: string (nullable = true)
+ |-- ORIGIN_COUNTRY_NAME: string (nullable = true)
+ |-- count: decimal(38,0) (nullable = true)*/
+toDfDataFrame.printSchema()
+```
+
+创建`schema`约束指定`DataFrames`的结构，在`StructType`中指定字段列表及类型之后创建`DataFrame`。对`DataFrame`调用`.rdd`方法可将`DataFrames`转换为`RDD[Row]`结构。可以在`spark SQL`中执行指定函数`avg()`、`filter()`及`max()`、`min()`操作：		
+
+```scala
+val flightSchema = StructType(
+  StructField("DEST_COUNTRY_NAME", StringType, true) ::
+  StructField("ORIGIN_COUNTRY_NAME", StringType, true) ::
+  StructField("count", IntegerType, true) :: Nil)
+val flightRdd = spark.sparkContext.parallelize(Seq(
+  Row("United States", "Romania", 264)
+))
+val dataFrame = spark.sqlContext.createDataFrame(flightRdd, flightSchema)
+```
+
+`Datasets`是`spark SQL`中一个令人激动的扩展—提供了编译期`compile time`的类型检查。从`Spark 2.0`开始，`DataFrames`成为`DataSets`的一个特殊版本，用于直接操作`generic`的`row`对象。像`DataFrames`一样，`Datasets`也由`Catalyst`优化器使用逻辑计划进行优化，缓存的数据可以用`spark SQL`内核编码方式进行存储。创建`DataSet`的方式与`Dataframe`类似，使用`createDateset(rdd)`或`rdd.toDS()`的方式进行创建：
+
+```scala
+val flightDataset = spark.sqlContext.createDataset(flightRdd)
+flightDataset.printSchema()
+val parallelizeDataset = spark.sparkContext.parallelize(Seq(flight)).toDS()
+```
+
+`spark`中`rdds`之前的转换多为`Wide transformations or Narrow transformations`，`wide`数据转换大多需要进行`shuffle`操作。`rdd`中的数据以`partitions`的方式保存，当要调整分区数量时，可使用`rdd.coalesce(numPartitions)`调整。这种方式比较高效，重新分区使用`narrow`的方式，可以避免无用的`shuffles`操作。
+
+`Minimizing Object Creation`优化，`spark`是运行在`JVM`上的，`JVM`的内存管理、`large data structures`及垃圾回收会很快成为`Spark Job`运行时耗费较大的一部分。在进行迭代式计算时，可使用`rdd.cache()`、`checkpoint`、`shuffile files`临时缓存处理后的结果。`spark`中存储在内存或硬盘上的`RDD`数据并不是自动`unpersist()`，`spark`使用`LRU`策略，在其`executors`内存快用完的时进行数据清理。
+
+​		

@@ -1,6 +1,7 @@
 package org.apache.spark
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
 
 
@@ -47,6 +48,38 @@ object DatasetsInSpark {
     flights.groupByKey(x => x.DEST_COUNTRY_NAME).flatMapGroups(grpSum).show(5)
     // 在dataset数据集上执行map-reduce操作，按DEST_COUNTRY_NAME对flights数据进行分组，然后将分组数据的count进行相加
     flights.groupByKey(x => x.DEST_COUNTRY_NAME).reduceGroups((left, right) => sum2(left, right)).take(5)
+
+    /*
+     * type (scala.math.BigInt) cannot be converted to decimal(38,0)，直接使用case class转换的问题
+     */
+    val flight: Flight = Flight("United States", "Romania", 264)
+//    val flightDfs = spark.createDataFrame(Seq(flight))
+//    flightDfs.printSchema();
+    // 调用toDf方法直接将RDD转换为DataFrame对象，在方法中指定column的列表
+    val toDfDataFrame = spark.sparkContext.parallelize(Seq(flight))
+      .toDF("DEST_COUNTRY_NAME", "ORIGIN_COUNTRY_NAME", "count")
+    toDfDataFrame.printSchema()
+
+    // 使用structType schema以及spark.sql.type.Row对象创建DataFrame对象
+    val flightSchema = StructType(
+      StructField("DEST_COUNTRY_NAME", StringType, true) ::
+        StructField("ORIGIN_COUNTRY_NAME", StringType, true) ::
+        StructField("count", IntegerType, true) :: Nil)
+    val flightRdd = spark.sparkContext.parallelize(Seq(
+      Row("United States", "Romania", 264)
+    ))
+    val dataFrame = spark.sqlContext.createDataFrame(flightRdd, flightSchema)
+    dataFrame.printSchema()
+
+    // DataFrameReader即为用于读取数据，是属于spark底层的API接口
+    // spark.read.format("json").option("samplingRatio", "1.0").load(path)
+
+    /*
+     * 创建Datasets的方式，使用spark.sqlContext.createDataset(flightRdd)创建Dataset，此外使用toDS()创建DataSet
+     */
+    val flightDataset = spark.sqlContext.createDataset(flightRdd)
+    flightDataset.printSchema()
+    val parallelizeDataset = spark.sparkContext.parallelize(Seq(flight)).toDS()
   }
 
   /**
