@@ -59,4 +59,42 @@ val parallelizeDataset = spark.sparkContext.parallelize(Seq(flight)).toDS()
 
 `Minimizing Object Creation`优化，`spark`是运行在`JVM`上的，`JVM`的内存管理、`large data structures`及垃圾回收会很快成为`Spark Job`运行时耗费较大的一部分。在进行迭代式计算时，可使用`rdd.cache()`、`checkpoint`、`shuffile files`临时缓存处理后的结果。`spark`中存储在内存或硬盘上的`RDD`数据并不是自动`unpersist()`，`spark`使用`LRU`策略，在其`executors`内存快用完的时进行数据清理。
 
-​		
+### Spark Components and Packages, Structured Streaming and Graphx
+
+`spark`具有大量组件，这些组件设计为作为一个集成系统一起工作，并且其中许多组件作为`spark`的一部分都是分布式的。`Spark Streaming`有两种`API`，其中一种是基于`RDDs`的叫做`DStreams`，另一种是基于`Spark SQL/DataFrames`的为`Structured Streaming`。许多关于`RDDs`转换、`DataFrames、DataSet`操作的性能考虑也同样适用于`streaming`上下文，大多数的`operations`都具有相同的名称，但也有一部分来自批处理`api`的操作在流`api`中并没有直接提供支持。
+
+批处理间隔表示分布式流系统中吞吐量和延迟之间的传统权衡，`Spark Streaming`在处理完每一个批次间隔数据后才会处理第二个批次。因此你应将批次间隔设置的足够高，以便在安排下一个批次开始之前要处理上一个批次。批处理时间的设置依赖与你的应用程序，对此很难提供一般准则。在进行流数据处理时，可使用`checkpoint`将数据内容写入到磁盘上。
+
+```scala
+val batchInterval = Second(1)
+new StreamingContext(sc, batchInterval)
+```
+
+`Graphx`是`Apache spark`上的一个遗留组件，已经有很长时间没有再更新。`Graphx`有遇到一些明显的性能问题：在某些情况下，执行迭代式计算时没有进行`checkpoint`以让`spark`清理`DAG`。目前最有希望的替代`Graphx`的是社区提供的`GraphFrames`组件，它旨在利用`Spark DataFrames`提供`GraphX`功能和扩展功能。这种扩展的功能包括主题查找，基于`DataFrame`的序列化和高度表达的图形查询。
+
+___Pregel: A System for Larg e-Scale Graph Processing___ 为`google`工程师发表`Pregal`关于分布式计算论文，分布式图框架就是将大型图的各种操作封装成接口，让分布式存储、并行计算等复杂问题对上层透明，从而使工程师将焦点放在图相关的模型设计和使用上，而不用关心底层的实现细节。图计算框架基本上都遵循分布式批同步（`Bulk Synchronous Parallel, BSP`）计算模式，基于`BSP`模式，目前比较成熟的图计算框架`Pregel`框架和`GraphLab`框架。
+
+`Spark Graphx`中主要使用`Graph.aggregateMessage()`和`Pregel`接口进行图相关的计算，依据`BSP`模型处理流程中比较核心是发`sendMsg`及`mergeMsg`过程：消息的发送与`graph`中的广度优先算法类似（`graph`所有结点同时发），每次都向相邻的点发送消息，对于收到消息的结点需要进行消息合并并更新`graph`并进行下一轮次的计算，直到最大迭代次数或`graph`中已没有要发送的消息为止。
+
+```scala
+/* @example We can use this function to compute the in-degree of each
+* vertex
+* {{{
+* val rawGraph: Graph[_, _] = Graph.textFile("twittergraph")
+* val inDeg: RDD[(VertexId, Int)] =
+*   rawGraph.aggregateMessages[Int](ctx => ctx.sendToDst(1), _ + _)
+* }}}
+*/
+def aggregateMessages[A: ClassTag](
+    sendMsg: EdgeContext[VD, ED, A] => Unit,
+    mergeMsg: (A, A) => A,
+    tripletFields: TripletFields = TripletFields.All)
+  : VertexRDD[A] = {
+    aggregateMessagesWithActiveSet(sendMsg, mergeMsg, tripletFields, None)
+}
+```
+
+
+
+
+
