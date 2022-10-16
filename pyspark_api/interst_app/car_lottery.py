@@ -43,14 +43,50 @@ def create_dataframes(spark: SparkSession) -> None:
 		StructField("count", IntegerType(), True)
 	])
 	summary_csv_path = "/Users/madong/datahub-repository/spark-graphx/example-data/flight-data/csv/2010-summary.csv"
-	summary_df = spark.read.format("csv").schema(schema).option("header", True)\
+	summary_df = spark.read.format("csv").schema(schema).option("header", True) \
 		.option("mode", 'dropMalformed').load(f"file:///{summary_csv_path}")
 	summary_df.show(10)
+
+
+def data_convert_on_dataframe(spark: SparkSession) -> None:
+	"""在dataframe上进行数据转换，通过createTempView创建临时表，用.sql()api去执行SQL"""
+	person_df = spark.createDataFrame([('Alice', 18), ('Bob', 14)], ['column', 'age'])
+	person_df.createTempView("person")
+	result = spark.sql("select * from person")
+	result.show()
+	# 1.探索类算子，查dataframe的schema内容及字段约束信息，printSchema会打印出table约束
+	employees = [(1, "John", 26, "Male"), (2, "Lily", 28, "Female"), (3, "Raymond", 30, "Male")]
+	employees_df = spark.createDataFrame(employees, ["id", "name", "age", "gender"])
+	employees_df.printSchema()
+	employees_df.show()
+	age_df = employees_df.describe("age")
+	age_df.show()
+	# 2.清洗类算子：删除某一列数据、distinct对所有数据去重、dropDuplicates可以对某几列去重
+	employees_df.drop("gender").show()
+	employees_df.distinct().show()
+	employees_df.dropDuplicates(["gender"]).show()
+	# 3.转换类算子：选择某几列组成新的df，以及selectExpr用表达式来组成df，where选择满足的条件
+	employees_df.select(["name", "age"]).show()
+	employees_df.selectExpr("id", "name", "concat('id', '_', 'name') as id_name").show()
+	employees_df.where("gender='Male'").show()
+	# 4.对列重命名：将gender命名为sex，在原列进行修改后组成新的一列，将age+10岁，同时drop某一列数据
+	employees_df.withColumnRenamed("gender", "sex").show()
+	employees_df.withColumn("crypto", employees_df['age'] + 10).drop("age").show()
 
 
 if __name__ == '__main__':
 	spark: SparkSession = get_spark_context()
 	rootPath = "car_dataset/car_lottery_2011_2019"
 	# calculate_rate(spark, rootPath)
-	# spark与不同数据源整合，创建DataFrame数据结构
-	create_dataframes(spark)
+	# 1.spark与不同数据源整合，创建DataFrame数据结构
+	# create_dataframes(spark)
+
+	# 2.dataframe上的数据转换，通过spark.sql() api去查询数据，explode拆分list
+	data_convert_on_dataframe(spark)
+	seq2 = [(1, "John", 26, "Male", ["Sports", "News"]),
+			(2, "Lily", 28, "Female", ["Shopping", "Reading"]),
+			(3, "Raymond", 30, "Male", ["Sports", "Reading"])]
+	employeesDF2 = spark.createDataFrame(seq2, ['id', 'name', 'age', 'gender', 'interests'])
+	from pyspark.sql.functions import explode
+
+	employeesDF2.withColumn('interest', explode(employeesDF2['interests'])).show()
