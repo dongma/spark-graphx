@@ -77,9 +77,9 @@ def data_convert_on_dataframe(spark: SparkSession) -> None:
 if __name__ == '__main__':
 	spark: SparkSession = get_spark_context()
 	rootPath = "car_dataset/car_lottery_2011_2019"
-	# calculate_rate(spark, rootPath)
+	calculate_rate(spark, rootPath)
 	# 1.spark与不同数据源整合，创建DataFrame数据结构
-	# create_dataframes(spark)
+	create_dataframes(spark)
 
 	# 2.dataframe上的数据转换，通过spark.sql() api去查询数据，explode拆分list
 	data_convert_on_dataframe(spark)
