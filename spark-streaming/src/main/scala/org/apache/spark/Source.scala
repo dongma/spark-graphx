@@ -11,7 +11,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
  * @date 2020/07/19
  * 用于从apache spark订阅topic并读取消息记录
  */
-object SourceApp {
+object Source {
 
   def main(args: Array[String]): Unit = {
     val sparkConf = new SparkConf().setAppName("Kafka Source Streaming").setMaster("local")

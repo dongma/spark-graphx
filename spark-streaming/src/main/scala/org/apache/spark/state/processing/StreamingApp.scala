@@ -1,4 +1,4 @@
-package org.apache.spark
+package org.apache.spark.state.processing
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.streaming.Trigger

@@ -12,7 +12,7 @@ import org.slf4j.{Logger, LoggerFactory}
  * @date 2020/07/22
  * EventTime Processing and Stateful Processing in DStream API
  */
-object EventTimeApp {
+object EventTime {
 
   private[this] val logger: Logger = LoggerFactory.getLogger(this.getClass)
 

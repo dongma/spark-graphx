@@ -1,5 +1,6 @@
-package org.apache.spark
+package org.apache.spark.state.processing
 
+import org.apache.spark.Flight
 import org.apache.spark.sql.SparkSession
 
 /**
