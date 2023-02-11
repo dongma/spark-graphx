@@ -7,7 +7,7 @@ import org.apache.spark.sql.SparkSession
  * @date 2020/07/13
  * 开发spark应用并在本地通过spark-submit提交jar包执行任务
  */
-object DataFrameExample extends Serializable {
+object DataFrame extends Serializable {
 
   /*
    * spark-submit脚本: $SPARK_HOME/bin/spark-submit --class org.apache.spark.DataFrameExample \
