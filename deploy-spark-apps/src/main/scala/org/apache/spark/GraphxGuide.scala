@@ -49,8 +49,20 @@ object GraphxGuide extends LocalSparkEnv with Logging {
 
       // Graphx的Triplet属性，既包含srcId、dstId也可以包含顶点及边的属性
       val facts: RDD[String] = graph.triplets.map {
-        triplet => triplet.srcAttr._1 + "# is the " + triplet.attr + " of #" + triplet.dstAttr._1 }
+        triplet => triplet.srcAttr._1 + "# is the " + triplet.attr + " of #" + triplet.dstAttr._1
+      }
       facts.collect.foreach(println(_))
+
+      // 属性操作，给学生姓名前加上Ph.D前缀，如:"rxin" -> "Ph.D rxin"
+      val newGraph = graph.mapVertices((id, attr) => {
+        if (attr._2.eq("student")) {
+          ("Ph.D " + attr._1, attr._1)
+        } else {
+          attr
+        }
+      })
+      val student = newGraph.vertices.filter {case (id, attr) => attr._2.equals("student")}.first()
+      println(s"Welcome the student [${student._2._1}] from UC Berkeley")
     })
   }
 
