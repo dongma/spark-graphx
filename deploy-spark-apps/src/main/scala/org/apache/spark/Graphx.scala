@@ -11,7 +11,7 @@ import org.apache.spark.util.LocalSparkEnv
  * @author Sam Ma
  * @date 2023/02/11
  */
-class GraphxGuide {
+class Graphx {
 
   /**
    * 从RDD中构建属性图，VD类型(rxin,student), ED类型为(College)
@@ -31,13 +31,13 @@ class GraphxGuide {
 
 }
 
-object GraphxGuide extends LocalSparkEnv with Logging {
+object Graphx extends LocalSparkEnv with Logging {
 
   /** 在object伴生对象中，定义apply方法，创建对象可省略new keyword */
-  def apply() = new GraphxGuide()
+  def apply() = new Graphx()
 
   def main(args: Array[String]): Unit = {
-    val guideApp = GraphxGuide()
+    val guideApp = Graphx()
 
     withSpark("property graph", { sc: SparkContext =>
       val graph: Graph[(String, String), String] = guideApp.propertyGraph(sc)

@@ -1,4 +1,4 @@
--- Neo4j Node import: 导入Person人员节点，Company企业节点｜数据集在example-data/neo4j_dataset目录下
+// Neo4j Node import: 导入Person人员节点，Company企业节点｜数据集在example-data/neo4j_dataset目录下
 LOAD CSV WITH HEADERS FROM "file:/data/ent_dataset/person.csv" AS row
 merge (person:Person {id:row.id}) ON CREATE set person.keyNo = row.keyNo,
   person.name = row.name, person.type = row.type;
@@ -7,7 +7,10 @@ LOAD CSV WITH HEADERS FROM "file:/data/ent_dataset/company.csv" AS row
 merge (company:Company {id:row.id}) ON CREATE set company.keyNo = row.keyNo,
   company.name = row.name, company.label = row.label, company.status = row.status;
 
--- Neo4j Relation import: 导入投资、任职、法人的关系边
+/**
+  * => Neo4j Relation import: 导入投资、任职、法人的关系边，Note：在使用graphx进行图计算时, VertexId
+  * 只能为Long类型. 在数据清洗时，应用VertexId替换掉目前的字符串作为唯一标识。
+  */
 LOAD CSV WITH HEADERS FROM "file:/data/ent_dataset/legal_rel.csv" AS row
 match (legal:Person {id: row.from})
 match (company:Company {id: row.to})
