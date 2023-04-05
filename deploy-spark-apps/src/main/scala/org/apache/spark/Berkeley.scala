@@ -3,7 +3,7 @@ package org.apache.spark
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.LocalSparkEnv
+import org.apache.spark.util.LocalSpark
 
 /**
  * GraphX Programming Guide,展示的图计算示例
@@ -11,7 +11,7 @@ import org.apache.spark.util.LocalSparkEnv
  * @author Sam Ma
  * @date 2023/02/11
  */
-class Graphx {
+class Berkeley {
 
   /**
    * 从RDD中构建属性图，VD类型(rxin,student), ED类型为(College)
@@ -31,13 +31,13 @@ class Graphx {
 
 }
 
-object Graphx extends LocalSparkEnv with Logging {
+object Berkeley extends LocalSpark with Logging {
 
   /** 在object伴生对象中，定义apply方法，创建对象可省略new keyword */
-  def apply() = new Graphx()
+  def apply() = new Berkeley()
 
   def main(args: Array[String]): Unit = {
-    val guideApp = Graphx()
+    val guideApp = Berkeley()
 
     withSpark("property graph", { sc: SparkContext =>
       val graph: Graph[(String, String), String] = guideApp.propertyGraph(sc)

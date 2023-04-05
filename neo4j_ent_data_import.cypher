@@ -1,4 +1,17 @@
-// Neo4j Node import: 导入Person人员节点，Company企业节点｜数据集在example-data/neo4j_dataset目录下
+/*
+ * 1.将Neo4j点、投资边csv数据集上传到Hadoop文件系统中:
+ */
+根目录下文件列表:   hadoop fs -ls /
+在hadoop根目录下创建dataset文件夹:  hadoop fs -mkdir /dataset
+
+hdfs上传点、边数据文件: hadoop fs -put example-data/neo4j_dataset/company.csv  /dataset
+hadoop fs -put example-data/neo4j_dataset/person.csv  /dataset
+hadoop fs -put example-data/neo4j_dataset/pinvest_rel.csv  /dataset
+hadoop fs -put example-data/neo4j_dataset/cinvest_rel.csv  /dataset
+hdfs查看文件内容: hadoop fs -cat /dataset/company.csv
+hdfs删除文件: hadoop fs -rm /dataset/company.csv
+
+// 2.Neo4j Node import: 导入Person人员节点，Company企业节点｜数据集在example-data/neo4j_dataset目录下
 LOAD CSV WITH HEADERS FROM "file:/data/ent_dataset/person.csv" AS row
 merge (person:Person {id:row.id}) ON CREATE set person.keyNo = row.keyNo,
   person.name = row.name, person.type = row.type;
