@@ -6,7 +6,7 @@
     <version>1.0.0</version>
   </parent>
   <groupId>org.apache.spark</groupId>
-  <artifactId>spark-graphx-calculate</artifactId>
+  <artifactId>algorithm</artifactId>
   <version>1.0.0</version>
 
   <build>

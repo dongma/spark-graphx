@@ -8,7 +8,7 @@ import org.apache.spark.sql.SparkSession
  * @date 2020/06/07
  * spark工具集概览，./bin/spark-submit通过jar包提交任务 Stream流式数据计算
  */
-object DatasetsAndStreaming {
+object StreamingApp {
 
   private[this] val logger = Logger(this.getClass)
 
@@ -43,7 +43,7 @@ object DatasetsAndStreaming {
     staticDataFrame.createGlobalTempView("retail_data")
     val staticSchema = staticDataFrame.schema
 
-    import org.apache.spark.sql.functions.{window, column, desc, col}
+    import org.apache.spark.sql.functions.{col, window}
     // 默认spark上executors数量应该为200，但目前开发环境机器硬件性能并不高，可通过conf设置partitions数量为5
     spark.conf.set("spark.sql.shuffle.partitions", "5")
     staticDataFrame.selectExpr(
@@ -66,19 +66,20 @@ object DatasetsAndStreaming {
     // spark stream针对数据流的操作并不会立即执行，需调用一个stream流式操作开始数据流的执行
     val purchaseByCustomerPerHour = streamingDataFrame
       .selectExpr("CustomerId",
-      "(UnitPrice * Quantity) as total_cost",
-      "InvoiceDate")
+        "(UnitPrice * Quantity) as total_cost",
+        "InvoiceDate")
       .groupBy($"CustomerId", window($"InvoiceDate", "1 day"))
       .sum("total_cost")
 
     // 将spark计算的结果写入到内存的临时表中，表名称为customer_purchases 所有的count必须在同一张表中 (目前未查出数据)
     purchaseByCustomerPerHour.writeStream
-      .format("memory")   // store in-memory table
+      .format("memory") // store in-memory table
       .queryName("customer_purchases")
       .outputMode("complete")
       .start()
 
-    spark.sql("""
+    spark.sql(
+      """
         select * from customer_purchases order by `sum(total_cost)` desc
         """).show(5)
   }

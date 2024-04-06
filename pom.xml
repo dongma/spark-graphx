@@ -7,10 +7,10 @@
     <version>1.0.0</version>
     <modules>
         <module>spark-fundamental</module>
-        <module>graphx-calculate</module>
+        <module>algorithm</module>
         <module>spark-sql</module>
         <module>spark-datasets</module>
-        <module>deploy-spark-apps</module>
+        <module>deploy-apps</module>
         <module>spark-streaming</module>
     </modules>
 
