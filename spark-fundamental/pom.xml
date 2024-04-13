@@ -10,6 +10,13 @@
     <artifactId>spark-fundamental</artifactId>
     <version>1.0.0</version>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.2.6</version>
+        </dependency>
+    </dependencies>
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
         <plugins>

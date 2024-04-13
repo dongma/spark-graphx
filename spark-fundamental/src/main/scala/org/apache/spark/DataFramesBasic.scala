@@ -27,7 +27,7 @@ object DataFramesBasic {
     val longType = LongType // spark types
 
     // schema
-    val citySchema = StructType(Array(
+    val flightSchema = StructType(Array(
       StructField("DEST_COUNTRY_NAME", StringType),
       StructField("ORIGIN_COUNTRY_NAME", StringType),
       StructField("count", IntegerType)
