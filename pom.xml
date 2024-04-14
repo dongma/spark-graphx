@@ -10,7 +10,7 @@
         <module>algorithm</module>
         <module>spark-sql</module>
         <module>spark-datasets</module>
-        <module>deploy-apps</module>
+        <module>performance-tuning</module>
         <module>spark-streaming</module>
     </modules>
 

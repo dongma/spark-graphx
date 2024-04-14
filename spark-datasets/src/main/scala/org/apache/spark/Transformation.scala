@@ -9,7 +9,7 @@ import org.slf4j.{Logger, LoggerFactory}
  * @date 2020/10/25
  * 使用spark rdd中的一些transformation函数: map()、flatmap()、sample()、mapPartition()
  */
-object RDDTransformation {
+object Transformation {
 
   private[this] val logger: Logger = LoggerFactory.getLogger(this.getClass)
 

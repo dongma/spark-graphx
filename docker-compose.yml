@@ -11,4 +11,4 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - "./sql:/docker-entrypoint-initdb.d"
+      - ".:/docker-entrypoint-initdb.d"

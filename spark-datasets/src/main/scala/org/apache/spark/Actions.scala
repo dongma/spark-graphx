@@ -8,7 +8,7 @@ import org.slf4j.{Logger, LoggerFactory}
  * @date 2020/10/29
  * 使用定义spark rdd的一些action()数据归集动作，action对触发rdd流程真正的执行
  */
-object RddActions {
+object Actions {
 
   private[this] val logger: Logger = LoggerFactory.getLogger(this.getClass)
 

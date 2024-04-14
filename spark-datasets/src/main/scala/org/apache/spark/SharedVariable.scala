@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
  * @date 2020/07/06
  * 分布式共享变量 Distributed Shared Variables
  */
-object SharedVariables {
+object SharedVariable {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 

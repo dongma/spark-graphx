@@ -1,16 +1,16 @@
-package org.apache.spark
+package org.apache.spark.dataset
 
+import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
-import org.apache.spark.sql.types._
+import org.apache.spark.{Flight, FlightWithMetadata}
 import org.slf4j.LoggerFactory
-
 
 /**
  * @author Sam Ma
  * @date 2020/06/21
- * Apache spark datasets数据集对数据 Transformation Filtering Mapping and Joins etc
+ *       Apache spark datasets数据集对数据 Transformation Filtering Mapping and Joins etc
  */
-object DatasetsInSpark {
+object Datasets {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -53,8 +53,8 @@ object DatasetsInSpark {
      * type (scala.math.BigInt) cannot be converted to decimal(38,0)，直接使用case class转换的问题
      */
     val flight: Flight = Flight("United States", "Romania", 264)
-//    val flightDfs = spark.createDataFrame(Seq(flight))
-//    flightDfs.printSchema();
+    //    val flightDfs = spark.createDataFrame(Seq(flight))
+    //    flightDfs.printSchema();
     // 调用toDf方法直接将RDD转换为DataFrame对象，在方法中指定column的列表
     val toDfDataFrame = spark.sparkContext.parallelize(Seq(flight))
       .toDF("DEST_COUNTRY_NAME", "ORIGIN_COUNTRY_NAME", "count")

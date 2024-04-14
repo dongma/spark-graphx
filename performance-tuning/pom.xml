@@ -6,7 +6,7 @@
     <version>1.0.0</version>
   </parent>
   <groupId>org.apache.spark</groupId>
-  <artifactId>algorithm</artifactId>
+  <artifactId>performance-tuning</artifactId>
   <version>1.0.0</version>
 
   <build>
