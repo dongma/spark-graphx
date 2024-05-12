@@ -10,8 +10,8 @@
         <module>algorithm</module>
         <module>spark-sql</module>
         <module>spark-datasets</module>
-        <module>performance-tuning</module>
         <module>spark-streaming</module>
+        <module>optimization-tuning</module>
     </modules>
 
     <properties>
