@@ -1,6 +1,6 @@
-package lowapi
+package org.apache.spark.lowapi
 
-import common.Person
+import org.apache.spark.common
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
@@ -33,7 +33,7 @@ object DTransformation {
    */
   def readPeople() = ssc.socketTextStream("localhost", 9999).map { line =>
     val tokens = line.split(":")
-    Person(
+    common.Person(
       tokens(0).toInt,  // id
       tokens(1),  // first name
       tokens(2),  // middle name

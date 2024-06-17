@@ -1,6 +1,6 @@
-package lowapi
+package org.apache.spark.lowapi
 
-import common.Stock
+import org.apache.spark.common.Stock
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}

@@ -1,6 +1,6 @@
-package structure
+package org.apache.spark.structure
 
-import common.{Car, carSchema}
+import org.apache.spark.common.{Car, carSchema}
 import org.apache.spark.sql.functions.{avg, col, from_json}
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
 

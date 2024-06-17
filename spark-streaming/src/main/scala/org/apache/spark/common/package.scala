@@ -1,5 +1,12 @@
+package org.apache.spark
+
 import org.apache.spark.sql.types._
 
+/**
+ *
+ * @author Sam Ma
+ * @date 2024/06/08
+ */
 package object common {
 
   val carSchema = StructType(Array(

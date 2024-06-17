@@ -1,5 +1,10 @@
-package common
+package org.apache.spark.common
 
+/**
+ *
+ * @author Sam Ma
+ * @date 2024/06/08
+ */
 case class Car(
                 Name: String,
                 Miles_per_Gallon: Option[Double],
