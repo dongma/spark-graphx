@@ -31,6 +31,21 @@
       <artifactId>kafka-streams-scala_2.12</artifactId>
       <version>3.2.2</version>
     </dependency>
+    <dependency>
+      <groupId>com.typesafe.akka</groupId>
+      <artifactId>akka-remote_${scala.compat.version}</artifactId>
+      <version>2.4.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.typesafe.akka</groupId>
+      <artifactId>akka-stream_${scala.compat.version}</artifactId>
+      <version>2.4.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.typesafe.akka</groupId>
+      <artifactId>akka-http_${scala.compat.version}</artifactId>
+      <version>10.1.15</version>
+    </dependency>
   </dependencies>
 
   <build>
