@@ -11,7 +11,7 @@
         <module>spark-sql</module>
         <module>spark-datasets</module>
         <module>spark-streaming</module>
-        <module>optimization-tuning</module>
+        <module>optimization</module>
     </modules>
 
     <properties>

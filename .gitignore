@@ -28,3 +28,7 @@ mvnw
 /.nb-gradle/
 
 .logs
+/spark-cluster/docker/base/spark-3.5.1-bin-hadoop3-scala2.13.tgz
+/out/
+/optimization/src/META-INF/
+/optimization/src/main/scala/META-INF/
