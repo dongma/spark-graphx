@@ -18,9 +18,9 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <encoding>UTF-8</encoding>
-        <scala.compat.version>2.11</scala.compat.version>
-        <scala.version>2.11.12</scala.version>
-        <spark.version>2.4.5</spark.version>
+        <scala.compat.version>2.13</scala.compat.version>
+        <scala.version>2.13.10</scala.version>
+        <spark.version>3.5.1</spark.version>
     </properties>
 
     <repositories>
@@ -74,7 +74,7 @@
         <dependency>
             <groupId>com.typesafe.scala-logging</groupId>
             <artifactId>scala-logging_${scala.compat.version}</artifactId>
-            <version>3.7.2</version>
+            <version>3.9.4</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
