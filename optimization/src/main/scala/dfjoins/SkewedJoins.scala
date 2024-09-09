@@ -1,4 +1,4 @@
-package joins
+package dfjoins
 
 import generator.Generator
 import org.apache.spark.sql.SparkSession

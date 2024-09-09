@@ -1,4 +1,4 @@
-package joins
+package dfjoins
 
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 

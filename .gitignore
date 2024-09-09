@@ -32,3 +32,5 @@ mvnw
 /out/
 /optimization/src/META-INF/
 /optimization/src/main/scala/META-INF/
+/example-data/rtjvm/exam_data/
+/example-data/rtjvm/lipsum/
