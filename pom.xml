@@ -12,6 +12,7 @@
         <module>spark-datasets</module>
         <module>spark-streaming</module>
         <module>optimization</module>
+        <module>tuning-with-scala</module>
     </modules>
 
     <properties>

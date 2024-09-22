@@ -38,11 +38,12 @@ trait LocalSpark {
     sparkBuilder.config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     sparkBuilder.appName(s"${appName}-${this.getClass.getSimpleName}")
 
-    val session = sparkBuilder.getOrCreate()
+    val spark = sparkBuilder.getOrCreate()
+    spark.sparkContext.setLogLevel("error")
     try {
-      f(session)
+      f(spark)
     } finally {
-      session.stop()
+      spark.stop()
     }
   }
 
