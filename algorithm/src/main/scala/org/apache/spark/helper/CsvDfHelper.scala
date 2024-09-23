@@ -72,14 +72,13 @@ object CsvDfHelper {
      */
     csvDF.show(3)
 
-    val defaultId = 102901L
     csvDF.map(row => {
       val vid = row.getAs[Int]("id").toLong
       val vType = row.getAs[String]("type")
       if (vType.equals("st_aj"))
         (vid, Map(vid -> Set[Long]()))
       else
-        (vid, Map(defaultId -> Set[Long]()))
+        (vid, Map[Long, Set[Long]]())
     })
   }
 

@@ -6,6 +6,8 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.util.LocalSpark
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable
+
 /**
  * 犯罪团伙分析，3人3案件
  * Created by madong on 2024/9/19.
@@ -37,6 +39,43 @@ class CrimeGangRunner {
     def mergeMaps1(msg1: Map[VertexId, Set[Long]], msg2: Map[VertexId, Set[Long]]) = {
       (msg1.keySet ++ msg2.keySet).map { key => (key, msg1.getOrElse(key, Set[Long]()).++(msg2.getOrElse(key, Set[Long]()))) }.toMap
     }
+
+    /* 识别犯罪团伙，案件数量需大于3、并且都存在(一组大于等于3人)的团伙 */
+    def detectCommunity(vertex: (VertexId, Map[VertexId, Set[Long]])) = {
+      val ajNum = vertex._2.keySet.size
+      if (ajNum < 3) {
+        false
+      } else {
+        /* Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101),
+        10290291 -> Set(10290101, 10290221, 10290311, 10290921),
+        12900992 -> Set(10290101, 10290221, 10290921, 13019201)) */
+        val groupIdMap = permutationSuspects(vertex._2)
+        // 重复的groupid，都来自于不同的案件
+        groupIdMap.values.exists(count => count >= 3)
+      }
+    }
+
+    /* 对案件嫌疑人进行排序分组，3个涉案人员为一组 */
+    def permutationSuspects(aggVals: Map[VertexId, Set[Long]]) = {
+      val groupIdMap = new mutable.HashMap[String, Long]()
+
+      aggVals.foreach(entry => {
+        val sortIds = entry._2.toSeq.sorted
+        if (sortIds.size == 3) {
+          // 元素刚好为3：groupId, "10290921,10290221,10290111"
+          val groupId = sortIds.mkString(",")
+          groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
+        } else {
+          // 元素大于3时，对id排序后按3个一组进行组合
+          for (i <- 2 until  sortIds.length) {
+            val groupId = sortIds.slice(i -2, i + 1).mkString(",")
+            groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
+          }
+        }
+      })
+      groupIdMap
+    }
+
     /* 定义消息体msgBody格式：
      {
        案件id1->[涉案人id1, 涉案人id2, 涉案人id3],
@@ -53,23 +92,7 @@ class CrimeGangRunner {
     ).persist()
 
     logger.info(s"==== getCrimeGroup ==> 输出msg merged后的节点, active count: ${newVertices.count()}")
-    /* case1,3人3案件模型，迭代第1轮次，sendToDst (嫌疑人)，消息merge后，活跃的vertices如下:
-    22:24:59.899 [main] INFO org.apache.spark.scheduler.DAGScheduler - Job 10 finished: take at CrimeGangRunner.scala:56, took 0.020007 s
-    (12110126,Map(12900991 -> Set(12110126)))
-    (10920128,Map(12900991 -> Set(10920128)))
-    (10290311,Map(10290102 -> Set(10290311), 10290291 -> Set(10290311)))
-    (10290111,Map(10290102 -> Set(10290111)))
-    (10290921,Map(10290102 -> Set(10290921), 10290291 -> Set(10290921), 12900992 -> Set(10290921)))
-    (10290101,Map(10290102 -> Set(10290101), 10290291 -> Set(10290101), 10920128 -> Set(10290101), 12900992 -> Set(10290101)))
-    (12110117,Map(10290102 -> Set(12110117), 12900991 -> Set(12110117)))
-    (10910129,Map(12900991 -> Set(10910129)))
-    (20192301,Map(93012001 -> Set(20192301)))
-    (10290221,Map(10290102 -> Set(10290221), 10290291 -> Set(10290221), 12900992 -> Set(10290221)))
-    (20192001,Map(93012001 -> Set(20192001)))
-    (13019201,Map(12900992 -> Set(13019201)))
-    (20192101,Map(10920128 -> Set(20192101), 93012001 -> Set(20192101))) */
-
-    /* case2, 3人3案件模型，迭代第1轮次，sendToSrc (案件)，消息merge后，活跃的vertices如下:
+    /* 3人3案件模型，迭代第1轮次，sendToSrc (案件)，消息merge后，活跃的vertices如下:
     (12900992,Map(12900992 -> Set(10290101, 10290221, 10290921, 13019201)))
     (10290102,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101)))
     (10920128,Map(10920128 -> Set(10290101, 20192101)))
@@ -77,14 +100,99 @@ class CrimeGangRunner {
     (10290291,Map(10290291 -> Set(10290101, 10290221, 10290311, 10290921)))
     (93012001,Map(93012001 -> Set(20192001, 20192101, 20192301))) */
 
-    /* case3, 3人3案件模型, 迭代第1轮次, sendToDst和sendToSrc同时发送时，活跃的点是 case1与case2的总和
-     */
     newVertices.take(20).foreach(println)
+    // Step1: 嫌疑人向案件发消息
+    val newGraph = graph.outerJoinVertices(newVertices) {(_, oldAttr, opt) =>
+      val newAttr = mergeMaps1(oldAttr, opt.getOrElse(Map[VertexId, Set[Long]]()))
+      // 案件的嫌疑人数量 >= 3 或者 当前点为"嫌疑人"点时，继续保留
+      val suspectNums = newAttr.flatMap(_._2).size
+      (newAttr, suspectNums >= 3 || opt.isEmpty)
+    }.subgraph(vpred = (_, vd) => vd._2).mapVertices {
+      case (_, attr) => attr._1
+    }
+    /* 消息符合预期：
+     (12110126,Map())
+    (12900992,Map(12900992 -> Set(10290101, 10290221, 10290921, 13019201)))
+    (10290102,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101)))
+    (10290311,Map())
+    (10290111,Map())
+    (12900991,Map(12900991 -> Set(10910129, 10920128, 12110117, 12110126)))
+     */
+    logger.info(s"==== getCrimeGroup ==>, 案件消息与graph中案件实体合并后，点的信息：")
+    newGraph.vertices.take(20).foreach(println)
 
+    // Step2: 案件聚集后向嫌疑人发消息
+    val activeVertices = newGraph.aggregateMessages[Map[VertexId, Set[Long]]](
+      triplet => {
+        // 定义谁发消息，考虑了下，整体流程：案件--发msg=>> 嫌疑人, msg格式为: {案件id, Set(嫌疑人id)}
+        val msg = triplet.srcAttr
+        triplet.sendToDst(msg)
+      },
+      (msg1, msg2) => mergeMaps1(msg1, msg2),
+      TripletFields.All
+    ).persist()
+    logger.info(s"==== getCrimeGroup ==> 输出msg merged后的节点, 案件发消息后，active count: ${activeVertices.count()}")
+    activeVertices.take(20).foreach(println)
+    /*
+     activate节点符合预期，部分数据：
+     (12110126,Map(12900991 -> Set(10910129, 10920128, 12110117, 12110126)))
+    (10290311,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101), 10290291 -> Set(10290101, 10290221, 10290311, 10290921)))
+    (10290111,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101)))
+    (10290921,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101), 10290291 -> Set(10290101, 10290221, 10290311, 10290921), 12900992 -> Set(10290101, 10290221, 10290921, 13019201)))
+     */
+    val filterGraph = newGraph.outerJoinVertices(activeVertices) {(_, oldAttr, opt) =>
+      val newAttr = mergeMaps1(oldAttr, opt.getOrElse(Map[VertexId, Set[Long]]()))
+      // 相关案件都会聚集到 => 嫌疑人节点上
+      val ajNum = newAttr.keySet.size
+      (newAttr, ajNum >= 3 || opt.isEmpty)
+    }.subgraph(vpred = (_, vd) => vd._2).mapVertices {
+      case (_, attr) => attr._1
+    }
+
+    logger.info("==== getCrimeGroup ==>, 嫌疑人消息与graph中案件实体合并后，点的信息：")
+    filterGraph.vertices.take(20).foreach(println)
+    /* (10290102,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101)))
+    (10290311,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101), 10290291 -> Set(10290101, 10290221, 10290311, 10290921), 12900992 -> HashSet(10290221, 13019201, 10290101, 10290921, 10290311)))
+    (12900991,Map(12900991 -> Set(10910129, 10920128, 12110117, 12110126)))
+    (10290921,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101), 10290291 -> Set(10290101, 10290221, 10290311, 10290921), 12900992 -> HashSet(10290221, 13019201, 10290101, 10290921, 10290311)))
+    (10290101,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101), 10290291 -> Set(10290101, 10290221, 10290311, 10290921), 12900992 -> HashSet(10290221, 13019201, 10290101, 10290921, 10290311)))
+    (21192101,Map())
+    (10290291,Map(10290291 -> Set(10290101, 10290221, 10290311, 10290921)))
+    (93012001,Map(93012001 -> Set(20192001, 20192101, 20192301)))
+    (10290221,Map(10290102 -> HashSet(10290111, 10290221, 10290921, 10290311, 12110117, 10290101), 10290291 -> Set(10290101, 10290221, 10290311, 10290921), 12900992 -> HashSet(10290221, 13019201, 10290101, 10290921, 10290311)))
+     */
+    val suspects = filterGraph.vertices.filter(vertex => detectCommunity(vertex))
+    logger.info(s"==== getCrimeGroup ==>, detectCommunity检测之后，嫌疑人数：${suspects.count()}")
+    suspects.take(10).foreach(println)
+
+    // 数据格式为: (涉案团伙成员 -> 共同参与案件)，样例格式为：(Seq(涉案人1,涉案人2,涉案人3) -> Seq(案件1, 案件2, 案件3))
+    val reasonMap = new mutable.HashMap[String, String]
+    suspects.foreach(vertex => {
+      val groupIds = permutationSuspects(vertex._2).filter(entry => entry._2 >= 3).keys.toSeq
+      for (groupId <- groupIds) {
+        val suspectIds: Seq[String] = groupId.split(",").toSeq
+
+        // TODO: 等待解析、获取满足要求的案件ids，转换数据格式的内容; RDD的foreach存在问题
+        val ajIds = Seq[Long]()
+        vertex._2.foreach(vAttr => {
+          val ajId = vAttr._1
+          val matched = suspectIds.forall(pid => vAttr._2.contains(pid.toLong))
+          if (matched) {
+            ajIds:+ajId
+          }
+        })
+        reasonMap.put(groupId, ajIds.mkString(","))
+      }
+    })
+
+    reasonMap
   }
+
 }
 
 object CrimeGangRunner extends LocalSpark {
+
+  val logger = LoggerFactory.getLogger(getClass)
 
   def instance(): CrimeGangRunner = {
     new CrimeGangRunner()
@@ -94,7 +202,8 @@ object CrimeGangRunner extends LocalSpark {
     withSession("CrimeGang Analysis", { spark: SparkSession =>
       val instance = CrimeGangRunner.instance()
       val graph = instance.generateGraph(spark)
-      instance.getCrimeGroup(graph)
+      val reasonMap = instance.getCrimeGroup(graph)
+      logger.info(s"CrimeGangRunner runner, reasonMap: ${reasonMap}")
     })
   }
 
