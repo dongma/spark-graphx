@@ -3,7 +3,6 @@ package org.apache.spark.pregel
 
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx._
-import org.apache.spark.graphx.lib.ShortestPaths
 import org.apache.spark.graphx.lib.ShortestPaths.SPMap
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
@@ -24,7 +23,7 @@ class ShortestPath extends Serializable {
   private def makeMap(x: (VertexId, Int)*) = Map(x: _*)
 
   /** 计算消息内容 */
-  private def incrementMap(edge: EdgeTriplet[SPMap, _]): SPMap = {
+  private def incrementMap(edge: EdgeTriplet[Map[VertexId, Int], _]): Map[VertexId, Int] = {
     val distance = edge.attr.asInstanceOf[Int]
     edge.dstAttr.map { case (v, d) => v -> (distance + d) }
   }
@@ -34,10 +33,10 @@ class ShortestPath extends Serializable {
    *
    * @return
    */
-  private def mergeMsg(spmap1: SPMap, spmap2: SPMap):SPMap = {
+  private def mergeMsg(spmap1: SPMap, spmap2: SPMap): Map[VertexId, Int] = {
     (spmap1.keySet ++ spmap2.keySet).map {
       k => k -> math.min(spmap1.getOrElse(k, Int.MaxValue), spmap2.getOrElse(k, Int.MaxValue))
-    }(collection.breakOut) // more efficient alternative to [[collection.Traversable.toMap]]
+    }.toMap
   }
 
   /**
@@ -62,7 +61,7 @@ class ShortestPath extends Serializable {
    *
    * @return
    */
-  def shortestPaths(session: SparkSession, landMarks: Seq[VertexId]): Graph[ShortestPaths.SPMap, Int] = {
+  def shortestPaths(session: SparkSession, landMarks: Seq[VertexId]): Graph[Map[VertexId, Int], Int] = {
     val graph: Graph[VexAttr, Int] = generateGraph(session)
 
     val spGraph = graph.mapVertices { (vid, attr) =>
@@ -71,18 +70,18 @@ class ShortestPath extends Serializable {
     val initialMsg = makeMap()
 
     /** 接收到消息后，顶点的处理逻辑 */
-    def vprog(id: VertexId, attr: SPMap, msg: SPMap): SPMap = {
+    def vprogfunc(id: VertexId, attr: SPMap, msg: SPMap): Map[VertexId, Int] = {
       mergeMsg(attr, msg)
     }
 
     /** vertex顶点发消息的逻辑，按shortestPath的逻辑：是从dstId向srcId发送消息的 */
-    def sendMsg(edge: EdgeTriplet[SPMap, _]): Iterator[(VertexId, SPMap)] = {
+    def sendMsg(edge: EdgeTriplet[Map[VertexId, Int], _]): Iterator[(VertexId, Map[VertexId, Int])] = {
       val newAttr = incrementMap(edge)
       if (edge.srcAttr != mergeMsg(newAttr, edge.srcAttr)) Iterator((edge.srcId, newAttr))
       else Iterator.empty
     }
 
-    Pregel(spGraph, initialMsg)(vprog, sendMsg, mergeMsg)
+    Pregel(spGraph, initialMsg)(vprog = vprogfunc, sendMsg, mergeMsg)
   }
 
 }
