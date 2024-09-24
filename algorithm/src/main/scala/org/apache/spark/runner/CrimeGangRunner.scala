@@ -1,6 +1,6 @@
 package org.apache.spark.runner
 
-import org.apache.spark.graphx.{Graph, PartitionStrategy, TripletFields, VertexId}
+import org.apache.spark.graphx._
 import org.apache.spark.helper.CsvDfHelper
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.util.LocalSpark
@@ -12,7 +12,7 @@ import scala.collection.mutable
  * 犯罪团伙分析，3人3案件
  * Created by madong on 2024/9/19.
  */
-class CrimeGangRunner {
+class CrimeGangRunner extends Serializable {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -53,27 +53,6 @@ class CrimeGangRunner {
         // 重复的groupid，都来自于不同的案件
         groupIdMap.values.exists(count => count >= 3)
       }
-    }
-
-    /* 对案件嫌疑人进行排序分组，3个涉案人员为一组 */
-    def permutationSuspects(aggVals: Map[VertexId, Set[Long]]) = {
-      val groupIdMap = new mutable.HashMap[String, Long]()
-
-      aggVals.foreach(entry => {
-        val sortIds = entry._2.toSeq.sorted
-        if (sortIds.size == 3) {
-          // 元素刚好为3：groupId, "10290921,10290221,10290111"
-          val groupId = sortIds.mkString(",")
-          groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
-        } else {
-          // 元素大于3时，对id排序后按3个一组进行组合
-          for (i <- 2 until  sortIds.length) {
-            val groupId = sortIds.slice(i -2, i + 1).mkString(",")
-            groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
-          }
-        }
-      })
-      groupIdMap
     }
 
     /* 定义消息体msgBody格式：
@@ -164,28 +143,53 @@ class CrimeGangRunner {
     val suspects = filterGraph.vertices.filter(vertex => detectCommunity(vertex))
     logger.info(s"==== getCrimeGroup ==>, detectCommunity检测之后，嫌疑人数：${suspects.count()}")
     suspects.take(10).foreach(println)
+    suspects
+  }
 
+  /* 对案件嫌疑人进行排序分组，3个涉案人员为一组 */
+  def permutationSuspects(aggVals: Map[VertexId, Set[Long]]) = {
+    val groupIdMap = new mutable.HashMap[String, Long]()
+
+    aggVals.foreach(entry => {
+      val sortIds = entry._2.toSeq.sorted
+      if (sortIds.size == 3) {
+        // 元素刚好为3：groupId, "10290921,10290221,10290111"
+        val groupId = sortIds.mkString(",")
+        groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
+      } else {
+        // 元素大于3时，对id排序后按3个一组进行组合
+        for (i <- 2 until  sortIds.length) {
+          val groupId = sortIds.slice(i -2, i + 1).mkString(",")
+          groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
+        }
+      }
+    })
+    groupIdMap
+  }
+
+  def formatRows(suspects: VertexRDD[Map[VertexId, Set[Long]]], spark: SparkSession) = {
+    import spark.implicits._
     // 数据格式为: (涉案团伙成员 -> 共同参与案件)，样例格式为：(Seq(涉案人1,涉案人2,涉案人3) -> Seq(案件1, 案件2, 案件3))
-    val reasonMap = new mutable.HashMap[String, String]
-    suspects.foreach(vertex => {
+    suspects.map(vertex => {
+      val reasonMap = new mutable.HashMap[String, String]()
       val groupIds = permutationSuspects(vertex._2).filter(entry => entry._2 >= 3).keys.toSeq
       for (groupId <- groupIds) {
         val suspectIds: Seq[String] = groupId.split(",").toSeq
-
-        // TODO: 等待解析、获取满足要求的案件ids，转换数据格式的内容; RDD的foreach存在问题
-        val ajIds = Seq[Long]()
+        // 找团伙疑似人共同参与的案件，案件数 >= 3
+        var ajIds = Seq[Long]()
         vertex._2.foreach(vAttr => {
           val ajId = vAttr._1
           val matched = suspectIds.forall(pid => vAttr._2.contains(pid.toLong))
           if (matched) {
-            ajIds:+ajId
+            ajIds = ajIds:+ajId
           }
         })
         reasonMap.put(groupId, ajIds.mkString(","))
       }
-    })
 
-    reasonMap
+      val members = reasonMap.keys.flatMap(_.split(",")).toSeq.mkString("$")
+      (vertex._1, members, reasonMap)
+    }).toDF("suspid", "members", "reasonMap")
   }
 
 }
@@ -202,8 +206,17 @@ object CrimeGangRunner extends LocalSpark {
     withSession("CrimeGang Analysis", { spark: SparkSession =>
       val instance = CrimeGangRunner.instance()
       val graph = instance.generateGraph(spark)
-      val reasonMap = instance.getCrimeGroup(graph)
-      logger.info(s"CrimeGangRunner runner, reasonMap: ${reasonMap}")
+      val suspectRdd = instance.getCrimeGroup(graph)
+      val rowsDF = instance.formatRows(suspectRdd, spark)
+      /*
+      [10290311,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
+      [10290921,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
+      TODO ~ 10290101, 这一条需要处理，其对应的团伙不包含"本身"
+      [10290101,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
+      [10290221,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
+       */
+      logger.info(s"CrimeGangRunner runner, 图谱中3人3年3案 疑似团伙人数为: ${rowsDF.count()}")
+      rowsDF.rdd.foreach(println)
     })
   }
 
