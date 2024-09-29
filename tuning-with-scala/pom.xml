@@ -6,7 +6,7 @@
         <groupId>org.apache.spark</groupId>
         <version>1.0.0</version>
     </parent>
-    <artifactId>spark-sql</artifactId>
+    <artifactId>tuning-with-scala</artifactId>
     <version>1.0.0</version>
 
     <build>
