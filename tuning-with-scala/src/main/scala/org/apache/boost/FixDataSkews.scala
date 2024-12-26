@@ -1,8 +1,8 @@
 package org.apache.boost
 
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.util.{Generator, Guitar, GuitarSale}
-import org.apache.spark.sql.functions._
 
 /**
  * 修复spark Job数据倾斜的问题
@@ -23,7 +23,7 @@ object FixDataSkews {
   val guitars: Dataset[Guitar] = Seq.fill(40000)(Generator.randomGuitar()).toDS
   val guitarSales: Dataset[GuitarSale] = Seq.fill(200000)(Generator.randomGuitarSale()).toDS
   /*
-   A guitar is similar to a GuitarSale if
+   A guitar is similar to a GuitarSale if, 耗费时间大约1.6min
    - same make and model
    - abs(guitar.soundScore - guitarSale.soundScore) <= 0.1
 
@@ -42,8 +42,25 @@ object FixDataSkews {
     joined.count()
   }
 
+  /*
+    加入salt字段，使数据的分布相对来说更均匀一些，耗费时间在26s
+   */
+  def noSkewSolution() = {
+    // salting interval 0 -99, multiplying the guitars DS * 100
+    val explodedGuitars = guitars.withColumn("salt", explode(lit((0 to 99).toArray)))
+    val saltedGuitarSales = guitarSales.withColumn("salt", monotonically_increasing_id() % 100)
+
+    val nonSkewedJoin = explodedGuitars.join(saltedGuitarSales, Seq("make", "model", "salt"))
+      .where(abs(saltedGuitarSales("soundScore") - explodedGuitars("soundScore")) <= 0.1)
+      .groupBy("configurationId")
+      .agg(avg("salePrice").as("averagePrice"))
+
+    nonSkewedJoin.explain()
+    nonSkewedJoin.count()
+  }
+
   def main(args: Array[String]): Unit = {
-    naiveSolution()
+    noSkewSolution()
     Thread.sleep(100000)
   }
 
