@@ -157,9 +157,10 @@ class CrimeGangRunner extends Serializable {
         val groupId = sortIds.mkString(",")
         groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
       } else {
-        // 元素大于3时，对id排序后按3个一组进行组合
-        for (i <- 2 until  sortIds.length) {
-          val groupId = sortIds.slice(i -2, i + 1).mkString(",")
+        // 元素大于3时，对id排序后按3个一组进行组合 TODO: fix:不正确的组合
+        val combineList = sortIds.combinations(3).toList
+        for (seq <- combineList) {
+          val groupId = seq.sorted.mkString(",")
           groupIdMap.put(groupId, 1L + groupIdMap.getOrElse(groupId, 0L))
         }
       }
@@ -207,14 +208,8 @@ object CrimeGangRunner extends LocalSpark {
       val instance = CrimeGangRunner.instance()
       val graph = instance.generateGraph(spark)
       val suspectRdd = instance.getCrimeGroup(graph)
-      val rowsDF = instance.formatRows(suspectRdd, spark)
-      /*
-      [10290311,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
-      [10290921,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
-      TODO ~ 10290101, 这一条需要处理，其对应的团伙不包含"本身"
-      [10290101,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
-      [10290221,10290221$10290311$10290921,Map(10290221,10290311,10290921 -> 10290102,10290291,12900992)]
-       */
+      // fix: 数据重复问题，先处理"3案"->然后"3人"，满足条件的嫌疑人(suspect)有共同参与案件时，会产生重复数据，所以要去重
+      val rowsDF = instance.formatRows(suspectRdd, spark).dropDuplicates("suspid", "members", "reasonMap")
       logger.info(s"CrimeGangRunner runner, 图谱中3人3年3案 疑似团伙人数为: ${rowsDF.count()}")
       rowsDF.rdd.foreach(println)
     })
